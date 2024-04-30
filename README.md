@@ -1,11 +1,12 @@
 # stick-game
-#Oynamak için: #https://burakerim.serv00.net
+
 # Oyun Projesi
 
 Bu repo, tarayıcı tabanlı basit bir oyunun kaynak kodlarını içermektedir. Oyun, HTML, CSS ve JavaScript kullanılarak geliştirilmiştir. Oyunun temel amacı, çeşitli engellerle dolu bir alanda oyuncunun sağ tarafa doğru ilerlemesini sağlamak ve engellere çarpmadan seviyeyi tamamlamasını sağlamaktır.
 
-#Oynanış Videosu 
-#https://youtu.be/E7aIwvxs7cw
+## Oynanış Videosu https://youtu.be/E7aIwvxs7cw
+ 
+## Oynamak için: https://burakerim.serv00.net
 
 ## Oyunun Özellikleri
 
