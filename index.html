@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Oyun</title>
+<style>
+* {
+  padding: 0;
+  margin: 0;
+}
+
+html, body, canvas {
+  width: 100%;
+  height: 100%;
+  background: #008F8C;
+}
+button {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  z-index: 1000; /* Butonun canvas üzerinde görünür olması için */
+}
+
+</style>
+</head>
+<body>
+  <button onclick="toggleMusic()">Müzik Çal/Durdur</button>
+<audio id="gameMusic" loop>
+  <source src="oyun.mp3" type="audio/mpeg">
+  Tarayıcınız ses elementini desteklemiyor.
+</audio>
+<script>
+// DOM üzerinden canvas oluşturuluyor
+var canvas = document.createElement("canvas");
+var ctx = canvas.getContext('2d');
+
+// Canvas boyutlarını ayarla
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+document.body.appendChild(canvas);
+
+// Rastgele sayı üretmek için fonksiyon
+function rand(min, max, interval) {
+  if(interval === undefined) interval = 1;
+  return Math.round((Math.floor(Math.random() * (max - min + 1)) + min) / interval) * interval;
+}
+
+// Dizi içinden rastgele eleman seç
+function randIndex(thearray) {
+  return thearray[rand(1, thearray.length) - 1];
+}
+
+// Oyuncu ayarları ve fonksiyonlar
+var player = (function() {
+  var x = 1000, 
+      y = canvas.height / 2,
+      w = 10,
+      h = 10,
+      dead = false,
+      death = 0;
+
+  return {
+    getX: function() { return x; },
+    getY: function() { return y; },
+    getW: function() { return w; },
+    getH: function() { return h; },
+    die: function() { dead = true; ++death; },
+    getDeath: function() { return death; },
+    resurrect: function() { this.moveTo(100 , canvas.height/2); dead = false; this.draw(); },
+    respawn: function() { this.moveTo(100 , canvas.height/2); this.draw(); blocks.nextLevel(); },
+    isDead: function() { return dead; },
+    draw: function() { ctx.fillStyle = "#D8FFDB"; ctx.fillRect(x, y, w, h); },
+    moveTo: function(a, b) { if(!dead) { x = a; y = b; if(y+h>canvas.height) { y = canvas.height - h; } } },
+  }
+})();
+
+// Engellerin ayarları ve fonksiyonlar
+var blocks = (function() {
+  var blocks = [],
+      level = 0,
+      level_factor = 1.20,
+      start = {
+        n : 10,
+        x1 : 210,
+        x2 : 700,
+        h_min : 15,
+        h_max : 100,
+        speed_min : 0.5,
+        speed_max : 5,
+        direction : ['up','down']
+      };
+
+  function Block(direction) {
+    this.w = 10;
+    this.h = rand(start.h_min, start.h_max);
+    this.x = rand(start.x1,start.x2,10);
+    this.y = 0;
+    this.speed = rand(start.speed_min,start.speed_max);
+    this.direction = direction;
+    if(direction === "up") {
+      this.y = canvas.height + rand(5, 350);
+    } else {
+      this.y -= rand(5, 350);
+    }
+  }
+
+  return {
+    curLevel: function() { return level; },
+    nextLevel: function() {
+      ++level;
+      blocks = [];
+      var n = Math.ceil(start.n + (level*level_factor));
+      this.createXBlocks(n);
+    },
+    draw: function(b) {
+      ctx.fillStyle = player.isDead() ? "#800000" : "#D98D00";
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+    },
+    drawZone: function() { ctx.fillStyle = "#111111"; ctx.fillRect(start.x1, 0, start.x2-start.x1+10, canvas.height); },
+    createXBlocks: function(n) { for(var i=0; i<n; ++i) { blocks.push(new Block(randIndex(start.direction))); } },
+    moveAll: function() {      var px = player.getX(),
+          py = player.getY(),
+          pw = player.getW(),
+          ph = player.getH();
+
+      if(player.isDead()) return;
+      else if(px > start.x2) {      
+        // Level geçildi
+        ctrl.x = 0;
+        ctrl.y = canvas.height / 2;
+        ctrl.velX = 0;
+        ctrl.velY = 0;
+        player.respawn();
+        return;
+      }
+
+      var len = blocks.length;
+      for(var i=0; i < len; ++i) {
+        if(blocks[i].direction === 'up') {
+          blocks[i].y -= blocks[i].speed;
+          if((blocks[i].y + blocks[i].h) < 0) {
+            blocks[i].y = canvas.height + rand(10, 350);
+          }
+        }
+        else {
+          blocks[i].y += blocks[i].speed;
+          if(blocks[i].y > canvas.height) {
+            blocks[i].y = 0;
+            blocks[i].y -= rand(10, 350);
+          }
+        } 
+
+        // Çarpışma kontrolü
+        if(((px > blocks[i].x) && (px < (blocks[i].x + blocks[i].w))) && 
+           ((py > blocks[i].y) && py < (blocks[i].y + blocks[i].h))) {
+          player.die();
+        }  
+        else if(((px+pw > blocks[i].x) && (px+pw < (blocks[i].x + blocks[i].w))) && 
+                ((py+ph > blocks[i].y) && (py+ph < (blocks[i].y + blocks[i].h)))) {
+          player.die();
+        }  
+      }
+    },
+
+    drawAll: function() {
+      for(var i in blocks) {
+        this.draw(blocks[i]);
+      }
+    },
+  }
+})();
+
+// Kontrolcü ayarları
+var ctrl = {
+  x : 100,  // Başlangıç x pozisyonu
+  y : (canvas.height / 2),  // Başlangıç y pozisyonu
+  velY : 0,
+  velX : 0,
+  speed : 1400, // Maksimum hız
+  friction : 0.68, // Sürtünme
+  keys : []
+}
+
+function updateCtrl() {
+  // Oyuncunun yeniden başlatılması
+  if(ctrl.keys[32]) {
+    if(player.isDead()) {
+      ctrl.x = 0;
+      ctrl.y = canvas.height / 2;
+      ctrl.velX = 0;
+      ctrl.velY = 0;
+      player.resurrect();
+    }
+  }
+
+  // Tuşlara göre hareketin kontrolü
+  if (ctrl.keys[38] || ctrl.keys[87]) { // Yukarı ok veya W
+    if (ctrl.velY > -ctrl.speed) {
+      ctrl.velY--;
+    }
+  }
+
+  if (ctrl.keys[40] || ctrl.keys[83]) { // Aşağı ok veya S
+    if (ctrl.velY < ctrl.speed) {
+      ctrl.velY++;
+    }
+  }
+  if (ctrl.keys[39] || ctrl.keys[68]) { // Sağ ok veya D
+    if (ctrl.velX < ctrl.speed) {
+      ctrl.velX++;
+    }
+  }
+  if (ctrl.keys[37] || ctrl.keys[65]) { // Sol ok veya A
+    if (ctrl.velX > -ctrl.speed) {
+      ctrl.velX--;
+    }
+  }
+
+  // Sürtünme ile hızın azaltılması
+  ctrl.velY *= ctrl.friction;
+  ctrl.y += ctrl.velY;
+  ctrl.velX *= ctrl.friction;
+  ctrl.x += ctrl.velX;
+
+  // Sınırların kontrolü
+  if (ctrl.x >= canvas.width) {
+    ctrl.x = canvas.width;
+  } else if (ctrl.x <= 5) {
+    ctrl.x = 5;
+  }
+
+  if (ctrl.y > canvas.height) {
+    ctrl.y = canvas.height;
+  } else if (ctrl.y <= 5) {
+    ctrl.y = 5;
+  }
+
+  // Oyuncunun yeni pozisyonuna taşınması
+  player.moveTo(ctrl.x, ctrl.y);
+
+  // Kontrol fonksiyonunun sürekli çağrılması
+  setTimeout(updateCtrl, 10);
+}
+
+updateCtrl();
+
+// Klavye olaylarının tanımlanması
+document.body.addEventListener("keydown", function (e) {
+  ctrl.keys[e.keyCode] = true;
+});
+document.body.addEventListener("keyup", function (e) {
+  ctrl.keys[e.keyCode] = false;
+});
+
+// İlk seviyeye başla
+blocks.nextLevel();
+
+function update() {
+  blocks.moveAll();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  blocks.drawZone();
+  blocks.drawAll();
+  player.draw();
+
+  if(player.isDead()) {
+    ctx.fillStyle = "#9F000C";
+    ctx.font="14px Verdana";
+    ctx.fillText("Oyun Bitti!", 10, 50);
+    ctx.fillText("Yeniden başlamak için ", 10, 70);
+    ctx.fillText("[BOŞLUK] tuşuna basın", 10, 90);
+  }
+  else {
+    ctx.fillStyle = "#28403D";
+    ctx.font="14px Verdana";
+    ctx.fillText("Diğer tarafa geç", 10, 50);
+    ctx.fillText("---------------------->", 10, 70);
+
+    ctx.fillText("Klavye ok tuşları veya", 10, 90);
+    ctx.fillText("[A] [W] [S] [D] kullanın", 10, 110);
+    ctx.fillText("Seviye : " + blocks.curLevel(), 10, 150);
+    ctx.fillText("Ölüm : " + player.getDeath(), 10, 170);
+  }
+}
+
+var fps = 0, now, lastUpdate = (new Date)*1;
+var fpsFilter = 50; // FPS'in hızlı değişimlerden daha az etkilenmesi için
+
+function drawFrame(){
+  var thisFrameFPS = 1000 / ((now=new Date) - lastUpdate);
+  if (now!=lastUpdate){
+    fps += (thisFrameFPS - fps) / fpsFilter;
+    lastUpdate = now;
+
+    if(isNaN(fps)) fps = 1;
+
+    ctx.fillStyle = "#888";
+    ctx.font="10px Verdana";
+    ctx.fillText(fps.toFixed(0) + " fps", 10, 20);
+  }
+}
+var music = document.getElementById("gameMusic");
+
+function toggleMusic() {
+  if (music.paused) {
+    music.play();
+  } else {
+    music.pause();
+  }
+}
+var animation_fps = 60;
+
+setInterval(function() {
+  update();
+  draw();
+  drawFrame();
+}, 1000/animation_fps);
+</script>
+</body>
+</html>
